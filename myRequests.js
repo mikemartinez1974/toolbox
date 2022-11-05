@@ -8,7 +8,7 @@ function getNextTorPort() {
     return availableTorPorts[portIndex++];
 }
 
-test();
+//test();
 
 // these are the tests.
 async function test() {
