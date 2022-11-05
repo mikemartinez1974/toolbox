@@ -1,5 +1,4 @@
 
-
 //import dependencies.
 const _ = require('lodash');
 const { program } = require('commander');
