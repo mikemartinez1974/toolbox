@@ -1,0 +1,32 @@
+{
+  "name": "toolbox",
+  "version": "1.0.1",
+  "description": "All of my tools.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikemartinez1974/toolbox.git"
+  },
+  "keywords": [
+    "nunya"
+  ],
+  "author": "Mike Martinez",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mikemartinez1974/toolbox/issues"
+  },
+  "homepage": "https://github.com/mikemartinez1974/toolbox#readme",
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "commander": "^9.4.1",
+    "linereader": "^1.1.0",
+    "lodash": "^4.17.21",
+    "mysql2": "^2.3.3",
+    "socks5-http-client": "^1.0.4",
+    "socks5-https-client": "^1.2.1",
+    "tor-request": "^3.1.0"
+  }
+}
