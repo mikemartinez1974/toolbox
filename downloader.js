@@ -155,33 +155,8 @@ async function download(record){
                 let message = "\t Error - " + reason + ". Retrying...";
                 console.log(message);
             })
-        
         }
     })
-    
-    
-    retval.filename = file;
-    record.data = data;
-    return retval;
-    
-    /*
-    if(!FS.existsSync("./partials")) FS.mkdirSync("./partials");
-    if(!FS.existsSync("./downloads")) FS.mkdirSync("./downloads");
-    if(!FS.existsSync("./candidates")) FS.mkdirSync("./candidates");
-    let filename = getFileNameFromUrl(path);
-    let destDirectory = "./partials";
-
-   let ext = PATH.extname(filename).replace(".","")
-   filename = uuidv4().toString() + "." + ext;
-   let result = await tor.download(path,{filename:filename, dir:destDirectory});
-
-    let completedFile = "./downloads/" + filename;
-
-    FS.writeFileSync(completedFile, FS.readFileSync(result));
-    FS.unlinkSync(result);
-
-    return completedFile;
-    */
 }
 
 async function processEntry(record) {
