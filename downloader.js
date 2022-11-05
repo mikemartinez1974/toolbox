@@ -17,30 +17,6 @@ eval(FS.readFileSync('c:/users/michael/documents/sourcecode/data/DataTools.js')+
 
 //tor.TorControlPort.password = '[Tor521]';
 
-// tor.request('https://api.ipify.org', function (err, res, body) {
-//   if (!err && res.statusCode == 200) {
-//     console.log("Your public (through Tor) IP is: " + body);
-//   }
-// });
-
-
-// tor.request(site,(err,res,body) => {
-//     if(!err && res.statusCode == 200) {
-//         console.log(body);
-//     }
-//     else {
-//         console.error(err);
-//     }
-// });
-
-
-// let entry = {
-//     name: name.trim(),
-//     size: size.trim(),
-//     date: fdate.trim(),
-//     link: link.trim()
-// }
-
 const myArgs = process.argv.slice(2);
 let task = myArgs[0] || "downloader";
 let taskfile = task + ".txt";
@@ -48,6 +24,20 @@ let taskfile = task + ".txt";
 const candidateExtentions = ["tiff","tif","jpg","jpeg","png","bmp","gif","pdf"];
 const minSize = 50000;
 const maxSize = 10000000;
+
+async function getNextTask(){
+        
+    let record = null;
+    if(FS.existsSync(taskfile)){
+        record = JSON.parse(FS.readFileSync(taskfile)).link;
+    } else {
+        let id = 0;
+        let recordset = await execute("call pp_search.nextfile;");
+        let record = recordset[0][0];
+        if(!record) return "EOF";
+    }
+    return record;
+}
 
 function isTargetSize(sizeAsString){
     let s = "";
@@ -89,11 +79,7 @@ function isTargetSize(sizeAsString){
 
 function isTargetExtention(filename){
     let extention = getFileExtention(filename);
-    if(candidateExtentions.includes(extention)) {
-        return true;
-    } else {
-        return false;
-    }
+    return candidateExtentions.includes(extention)
 }
 
 function getFileExtention(fileName){
@@ -153,112 +139,151 @@ function convertPDF(bufferOrFile,format = "png") {
 	}
 }
 
-(async () => {
-
-    let site = "";
-    async function getNextTask(){
+async function download(record){
+    return new Promise((resolve,reject) => {
         
-        let link = "";
-        if(FS.existsSync(taskfile)){
-            link = FS.readFileSync(taskfile).toString().trim();
-            //fs.unlinkSync(taskfile);
-        } else {
+        record.data = null;
+        
+        while(record.data == null){
+        
+            record.data = makeRequest(record.link)
 
-            while(link=="") {
-                let id = 0;
-                let result = await execute("call pp_search.nextfile;");
-			 let record = result[0][0];
-                
-                if(!record) return "EOF";
+            .then(() => { 
+                resolve(record) })
 
-                let size = record.size;
-                
-                link = record.link;
-                
-                if(isTargetSize(size) && isTargetExtention(link)){
-                    FS.writeFileSync(taskfile,link);
-                }
-                else
-                {
-                    let filename = getFileNameFromUrl(link);
-                    console.log("\n Skipping " + filename + " (" + size + ")");
-                    link = "";
-                }
-            }
+            .catch((reason) => {
+                let message = "\t Error - " + reason + ". Retrying...";
+                console.log(message);
+            })
+        
         }
-        return link;
-    }
+    })
     
-    let nextFile = "EOF"
+    
+    retval.filename = file;
+    record.data = data;
+    return retval;
+    
+    /*
+    if(!FS.existsSync("./partials")) FS.mkdirSync("./partials");
+    if(!FS.existsSync("./downloads")) FS.mkdirSync("./downloads");
+    if(!FS.existsSync("./candidates")) FS.mkdirSync("./candidates");
+    let filename = getFileNameFromUrl(path);
+    let destDirectory = "./partials";
+
+   let ext = PATH.extname(filename).replace(".","")
+   filename = uuidv4().toString() + "." + ext;
+   let result = await tor.download(path,{filename:filename, dir:destDirectory});
+
+    let completedFile = "./downloads/" + filename;
+
+    FS.writeFileSync(completedFile, FS.readFileSync(result));
+    FS.unlinkSync(result);
+
+    return completedFile;
+    */
+}
+
+async function processEntry(record) {
+    return new Promise((resolve, reject) => {
+        let size = record.size;
+        link = record.link;
+        
+        if(isTargetSize(size) && isTargetExtention(link)){
+            //decide what to do with the file here.
+            FS.writeFileSync(taskfile,record);
+            
+            let ext = getFileExtention(filename);
+            
+            if(!candidateExtentions.includes(ext)) reject("\tRejecing " + record.file + " - wrong filetype.")
+
+            switch(ext) {
+                case "pdf":
+                    download(record)
+                    .then(processPdf(record))
+
+                    break;
+                case "sql":
+                case "csv":
+                case "txt":processTxt(record);
+                    break;
+                case "xls":
+                case "xlsx":processXls(record);
+                default:
+            }
+
+        }
+        else
+        {
+            let reason = "\tRejecing " + record.file + " - wrong size."
+            reject(reason);
+        }
+
+    })
+}
+
+(async () => {
+    
+    let nextRecord = {file:"EOF",link:"EOF"}
     if(myArgs.length > 1) {
-        nextFile = myArgs[1].trim();
+        let a = myArgs[1].trim();
+        nextRecord.file = getFileNameFromUrl(a)
+        nextRecord.link = a;
     }
     else
     {
-        nextFile = await getNextTask();
+        nextRecord = await getNextTask();
     }
     
-    while (nextFile != "EOF"){
+    while (nextRecord.link != "EOF"){
     
-        let url = nextFile;
-        try{
-            let filename = getFileNameFromUrl(url);
-            console.log("\n" + currentTime() + " : downloading " + filename);
-
-            //download the file
-            let result = await torDownload(url);
-            
-            console.log("\t- Received : " + filename + " (" + result.length/1024 + "kb)");
-
-            //convert it if it needs to be converted
-            let buffer = result;
-            let ext = getFileExtention(filename);
-            if(candidateExtentions.includes(ext))
-            {
-                if(ext == "pdf"){
-                    let result = convertPDF(buffer);
-                    if(result.length > 0) {
-                        for(let i = 0; i < result.length; i++)
-                        {
-                            //scan for faces here.
-                        }
-                    }
-                }
-            }
-		    
-            //delete current task and get a new one.
-            if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);            
-            nextFile = await getNextTask();
-            //console.log(nextSite);
-    
-        } catch (e) {
-            console.log(e);
-            //console.log(nextSite);
-            console.log("\t* " + currentTime() + ": retrying...");
-            continue
+        try {
+            await processEntry(nextRecord);
         }
-    }
-    
-    async function torDownload(path){
-        retval = await makeRequest(path);
-        return retval;
-        
-
-        if(!FS.existsSync("./partials")) FS.mkdirSync("./partials");
-        if(!FS.existsSync("./downloads")) FS.mkdirSync("./downloads");
-        if(!FS.existsSync("./candidates")) FS.mkdirSync("./candidates");
-        let filename = getFileNameFromUrl(path);
-        let destDirectory = "./partials";
-
-	   let ext = PATH.extname(filename).replace(".","")
-	   filename = uuidv4().toString() + "." + ext;
-	   let result = await tor.download(path,{filename:filename, dir:destDirectory});
-
-        let completedFile = "./downloads/" + filename;
-
-        FS.writeFileSync(completedFile, FS.readFileSync(result));
-        FS.unlinkSync(result);
-
-        return completedFile;
+        catch(reason) {
+            console.log(reason);
+        }
+        //delete current task and get a new one.
+        if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);            
+        nextRecord = await getNextTask();
     }
 })();
+
+
+
+//  try{
+//             let filename = nextRecord.file;
+//             console.log("\n" + currentTime() + " : downloading " + filename);
+
+//             //download the file
+//             let result = await torDownload(url);
+            
+//             console.log("\t- Received : " + filename + " (" + result.length/1024 + "kb)");
+
+//             //convert it if it needs to be converted
+//             let buffer = result;
+//             let ext = getFileExtention(filename);   //-
+//             if(candidateExtentions.includes(ext))   //-
+//             {
+//                 if(ext == "pdf"){
+//                     let result = convertPDF(buffer);
+//                     if(result.length > 0) {
+//                         for(let i = 0; i < result.length; i++)
+//                         {
+//                             //scan for faces here.
+//                         }
+//                     }
+//                 }
+//             }
+		    
+//             //delete current task and get a new one.
+//             if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);            
+//             nextRecord = await getNextTask();
+//             //console.log(nextSite);
+    
+//         } catch (e) {
+//             console.log(e);
+//             //console.log(nextSite);
+//             console.log("\t* " + currentTime() + ": retrying...");
+//             continue
+//         }

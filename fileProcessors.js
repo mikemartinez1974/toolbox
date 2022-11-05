@@ -3,6 +3,8 @@ const LINEREADER = require('linereader');
 const ssnRX = RegExp("^(?!666|000|9\\d{2})\\d{3}-(?!00)\\d{2}-(?!0{4})\\d{4}$","ig");
 const ssnHeaderRX = RegExp("\\b(ssn|ss|social security|soc([\\s\\.-]{1,2})sec)\\b","ig");
 
+async function processData(fileAsBuffer){}
+
 async function processText(filename) {
     return new Promise((resolve,reject) => {
 
@@ -40,4 +42,32 @@ async function processText(filename) {
 
 async function processXls(filename){
 
+}
+
+async function processPdf(record){
+
+    let result = convertPDF(record.data);
+    if(result.length > 0) {
+        
+        for(let i = 0; i < result.length; i++)
+        {
+            //scan for faces here.
+        }
+    }
+
+}
+
+function detectFacesFromBuffer(path){
+    let results;
+    try{
+        let img = IMGSYNC.read("downloads/" + PATH.basename(path));
+        results = DETECTOR.runFaceDetector(img.data,img.width,img.height);
+        //DETECTOR.runFaceDetector()
+    }   
+    catch(e)
+    {
+        results = [];
+        console.log("Error parsing image.")
+    }
+    return results.length > 0 ? true : false
 }
