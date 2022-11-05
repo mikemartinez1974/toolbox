@@ -50,7 +50,6 @@ async function getNextBrowserAgent() {
     })
 }
 
-/** Executes a search and sends the html to onRequestComplete() */
 async function makeRequest(url,proxy,useTor) {
     if (debugging) {
         console.warn(`makeRequest(${url},${proxy},${useTor})`);
@@ -232,5 +231,25 @@ async function makeHttpRequest(options) {
         });
 
         request.end() 
+    })
+}
+
+async function download(url){
+    return new Promise((resolve,reject) => {
+        
+        let data = null;
+        
+        while(data == null){
+        
+            data = makeRequest(url)
+
+            .then(() => { 
+                resolve(data) })
+
+            .catch((reason) => {
+                let message = "\t Error - " + reason + ". Retrying...";
+                console.log(message);
+            })
+        }
     })
 }

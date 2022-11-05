@@ -1,5 +1,4 @@
 
-//import dependencies.
 const _ = require('lodash');
 const { program } = require('commander');
 const fs = require('fs');
@@ -14,21 +13,6 @@ eval(fs.readFileSync('c:/users/michael/documents/sourcecode/data/DataTools.js')+
 const tor = require('tor-request'); 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 tor.TorControlPort.password = '[Tor521]';
-
-// tor.request('https://api.ipify.org', function (err, res, body) {
-//   if (!err && res.statusCode == 200) {
-//     console.log("Your public (through Tor) IP is: " + body);
-//   }
-// });
-
-// tor.request(site,(err,res,body) => {
-//     if(!err && res.statusCode == 200) {
-//         console.log(body);
-//     }
-//     else {
-//         console.error(err);
-//     }
-// });
 
 
 // let entry = {
@@ -83,7 +67,7 @@ let taskfile = task + ".TASK";
     
         let url = nextSite;
         try{
-            let page = await torRequest(url,false);
+            let page = await download(url);
             let results = parseDirectory(page,url);
             let files = results.files;
             let directories = results.directories;
@@ -130,31 +114,6 @@ let taskfile = task + ".TASK";
             else if(record.length == 0) return "EOF";
         }
         return link;
-    }
-    
-    async function torRequest(path,refreshIp){
-        let rip = refreshIp || false;
-        tor.setTorAddress('localhost',getNextTorPort());
-        return new Promise((resolve,reject) => {
-            
-            if(rip) {
-                tor.newTorSession((err)=>{
-                    if(err != null){
-                        //reject(err);
-                    }
-                });
-            }
-
-            tor.request(path,(err,res,body) => {
-                if(!err && res.statusCode == 200){
-                    resolve(body);
-                }
-                else {
-                    //console.log(err);
-                    reject(err);
-                }
-            });
-        });
     }
     
     function parseDirectory(htmltext,path) {
@@ -341,5 +300,3 @@ function getNextTorPort() {
     return availableTorPorts[portIndex++];
 }
 
-//1 files & 13 dirs in ...47va47ewbwad.onion/JhykowedsgX/0Fq2sdWMXo8gty/isp/
-//1 files & 13 dirs in ...47va47ewbwad.onion/JhykowedsgX/0Fq2sdWMXo8gty/isp/
