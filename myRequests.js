@@ -51,9 +51,9 @@ async function getNextBrowserAgent() {
 }
 
 /** Executes a search and sends the html to onRequestComplete() */
-async function makeRequest(url,useProxy,useTor) {
+async function makeRequest(url,proxy,useTor) {
     if (debugging) {
-        console.warn(`makeRequest(${url},${useProxy},${useTor})`);
+        console.warn(`makeRequest(${url},${proxy},${useTor})`);
     }
 
     let urlIsOnion = useTor || (url.indexOf(".onion/") > -1) ? true : false
@@ -101,24 +101,23 @@ async function makeRequest(url,useProxy,useTor) {
 
     } else { 
 
-        if(useProxy) {
-            let proxy = getNextProxy().split(":");
-            let agent = await getNextBrowserAgent();
+        if(proxy) {
+            let p = proxy.split(":");
+            //let agent = await getNextBrowserAgent();
     
-            if(proxy.length > 2)
+            if(p.length > 2)
             {
                 options.headers = {
-                    host : url.split("/")[2],
-                    agent : agent
+                    host : url.split("/")[2]
                 };
-                options.host = proxy[0];
-                options.port = parseInt(proxy[1]);
-                options.username = proxy[2];
-                options.password = proxy[3]; 
+                options.host = p[0];
+                options.port = parseInt(p[1]);
+                options.username = p[2];
+                options.password = p[3]; 
             }
             else {
-                options.host = proxy[0];
-                options.port = parseInt(proxy[1]);
+                options.host = p[0];
+                options.port = parseInt(p[1]);
             }
         }
 
@@ -173,7 +172,8 @@ async function makeHttpsRequest(options) {
     }
 
     return new Promise((resolve,reject) => {
-        request = require('https').request(options.url, (response) => {
+        if(options.length == 1) options = options.url;
+        request = require('https').request(options, (response) => {
             let data = '';
             response.on('data', (chunk) => {
                 data = data + chunk.toString();
@@ -207,8 +207,9 @@ async function makeHttpRequest(options) {
         console.log(options);
     } 
     
-    return new Promise((resolve,reject) => {         
-        request = http.request(options.url, (response) => {
+    return new Promise((resolve,reject) => {   
+        if(options.length == 1) options = options.url;      
+        request = http.request(options, (response) => {
             let data = '';
             response.on('data', (chunk) => {
                 data = data + chunk.toString();
