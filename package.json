@@ -22,6 +22,7 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "commander": "^9.4.1",
+    "face-detector-self-contained": "^0.0.2",
     "linereader": "^1.1.0",
     "lodash": "^4.17.21",
     "mysql2": "^2.3.3",

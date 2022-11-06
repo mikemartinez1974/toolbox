@@ -3,25 +3,35 @@ process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
 const pdf = require('pdf-to-png-converter')
 const FS = require('fs');
-const TOR = require('@mich4l/tor-client');
-const tor = new TOR.TorClient({socksHost:'127.0.0.1', socksPort:9050});
 const PATH = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { resolve } = require('path');
-const { reject } = require('lodash');
 eval(FS.readFileSync('c:/users/michael/documents/sourcecode/utils/utils.js')+'');
-
-//const FACES = require('faces');
 eval(FS.readFileSync('c:/users/michael/documents/sourcecode/utils/utils.js')+'');
 eval(FS.readFileSync('c:/users/michael/documents/sourcecode/data/DataTools.js')+'');
+eval(FS.readFileSync('sharedFunctions.js')+'');
 
 //tor.TorControlPort.password = '[Tor521]';
+
+// record = {
+//     uuid: uuidv4
+//     name: <string>,
+//     size: <string>,
+//     date: <string>,
+//     link: <string>,
+//     data: <buffer>,
+//     images: Array of {   //'images' is an array of imageinfo.
+//                  name: string; // PNG page name in a format `{pdfFileName}_page_{pdfPageNumber}.png`,
+//                  content: Buffer; // PNG page Buffer content
+//                  path: string; // Path to the rendered PNG page file (empty string and if outputFilesFolder is not provided)
+//                  faces: Array of [y,x,size,score]
+//              }
+// }
 
 const myArgs = process.argv.slice(2);
 let task = myArgs[0] || "downloader";
 let taskfile = task + ".txt";
 
-const candidateExtentions = ["tiff","tif","jpg","jpeg","png","bmp","gif","pdf"];
+
 const minSize = 50000;
 const maxSize = 10000000;
 
@@ -30,6 +40,7 @@ async function getNextTask(){
     let record = null;
     if(FS.existsSync(taskfile)){
         record = JSON.parse(FS.readFileSync(taskfile)).link;
+        record.uuid = uuidv4();
     } else {
         let id = 0;
         let recordset = await execute("call pp_search.nextfile;");
@@ -82,23 +93,6 @@ function isTargetExtention(filename){
     return candidateExtentions.includes(extention)
 }
 
-function getFileExtention(fileName){
-    let lastPeriod = fileName.lastIndexOf(".");
-    let start = lastPeriod+1;
-    let end = fileName.length - start;
-    let extention = fileName.substr(start,end)
-    return extention.toLowerCase();
-}
-
-function getFileNameFromUrl(url){
-	url = decodeURI(url);
-	let lastSlash = url.lastIndexOf("/");
-	let start = lastSlash+1;
-	let end = url.length - start;
-	let filename = url.substr(start,end)
-	return filename.toLowerCase();
-}
-
 function convertPDF(bufferOrFile,format = "png") {
 	format = format.toLowerCase();
 	//let filename = PATH.basename(path);
@@ -143,47 +137,54 @@ async function download(record){
     return new Promise((resolve,reject) => {
         
         record.data = null;
-        
-        while(record.data == null){
-        
-            record.data = makeRequest(record.link)
-
+        record.data = makeRequest(record.link)
             .then(() => { 
                 resolve(record) })
-
             .catch((reason) => {
                 let message = "\t Error - " + reason + ". Retrying...";
                 console.log(message);
             })
-        }
     })
 }
 
-async function processEntry(record) {
+const candidateExtentions = ["tiff","tif","jpg","jpeg","png","bmp","gif","pdf"];
+
+async function processRecord(record) {
     return new Promise((resolve, reject) => {
-        let size = record.size;
+        
         link = record.link;
         
-        if(isTargetSize(size) && isTargetExtention(link)){
-            //decide what to do with the file here.
-            FS.writeFileSync(taskfile,record);
+        //decide what to do with the file here.
+        if(isTargetSize(record.size)){
+            FS.writeFileSync(taskfile,record)
             
-            let ext = getFileExtention(filename);
+            let ext = getFileExtention(filename)
             
-            if(!candidateExtentions.includes(ext)) reject("\tRejecing " + record.file + " - wrong filetype.")
+            if(!candidateExtentions.includes(ext)) reject("\tRejected - " + record.file + " - wrong filetype.")
 
             switch(ext) {
                 case "pdf":
                     download(record)
-                    .then(processPdf(record))
+                        .then(() => { processPdf(record) } )
+                        .then(resolve(record));
 
                     break;
+
                 case "sql":
                 case "csv":
-                case "txt":processTxt(record);
+                case "txt":
+                    download(record)
+                        .then(processTxt(record))
+                        .then(resolve(record))
+
                     break;
+
                 case "xls":
-                case "xlsx":processXls(record);
+                case "xlsx":
+                    download(record).then(processXls(record))
+                    .then(resolve(record))
+                    break;
+
                 default:
             }
 
@@ -210,55 +211,16 @@ async function processEntry(record) {
         nextRecord = await getNextTask();
     }
     
-    while (nextRecord.link != "EOF"){
+    while (nextRecord != "EOF"){
     
         try {
-            await processEntry(nextRecord);
+            await processRecord(nextRecord)
         }
         catch(reason) {
             console.log(reason);
         }
         //delete current task and get a new one.
-        if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);            
+        if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);          
         nextRecord = await getNextTask();
     }
 })();
-
-
-
-//  try{
-//             let filename = nextRecord.file;
-//             console.log("\n" + currentTime() + " : downloading " + filename);
-
-//             //download the file
-//             let result = await torDownload(url);
-            
-//             console.log("\t- Received : " + filename + " (" + result.length/1024 + "kb)");
-
-//             //convert it if it needs to be converted
-//             let buffer = result;
-//             let ext = getFileExtention(filename);   //-
-//             if(candidateExtentions.includes(ext))   //-
-//             {
-//                 if(ext == "pdf"){
-//                     let result = convertPDF(buffer);
-//                     if(result.length > 0) {
-//                         for(let i = 0; i < result.length; i++)
-//                         {
-//                             //scan for faces here.
-//                         }
-//                     }
-//                 }
-//             }
-		    
-//             //delete current task and get a new one.
-//             if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile);            
-//             nextRecord = await getNextTask();
-//             //console.log(nextSite);
-    
-//         } catch (e) {
-//             console.log(e);
-//             //console.log(nextSite);
-//             console.log("\t* " + currentTime() + ": retrying...");
-//             continue
-//         }
