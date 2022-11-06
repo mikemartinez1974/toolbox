@@ -24,6 +24,96 @@ const ssnHeaderRX = RegExp("\\b(ssn|ss|social security|soc([\\s\\.-]{1,2})sec)\\
 //              }
 // }
 
+async function processRecord(record) {
+    return new Promise((resolve, reject) => {
+        
+        link = record.link;
+        
+        //decide what to do with the file here.
+        if(isTargetSize(record.size)){
+                        
+            let ext = getFileExtention(filename)
+            
+            if(!candidateExtentions.includes(ext)) {
+                reject("\tRejected - " + record.file + " - wrong filetype.")}
+
+            switch(ext) {
+                case "pdf":
+                    download(record)
+                        .then(() => { processPdf(record) } )
+                        .then(resolve(record));
+
+                    break;
+                case "sql":
+                case "csv":
+                case "txt":
+                    download(record)
+                        .then(processTxt(record))
+                        .then(resolve(record))
+
+                    break;
+                case "xls":
+                case "xlsx":
+                    download(record).then(processXls(record))
+                    .then(resolve(record))
+                    break;
+                default:
+            }
+
+        }
+        else
+        {
+            let reason = "\tRejecing " + record.file + " - wrong size."
+            reject(reason);
+        }
+
+    })
+}
+
+async function download(record){
+    return new Promise((resolve,reject) => {
+        
+        record.data = null;
+        record.data = makeRequest(record.link)
+            .then(() => { 
+                resolve(record) })
+            .catch((reason) => {
+                let message = "\t Error - " + reason + ". Retrying...";
+                console.log(message);
+            })
+    })
+}
+
+async function processPdf(record){
+    return new Promise((resolve,reject) =>{
+        FS.writeFileSync(taskfile,record)
+        record = convertPDF(record);
+        
+        //Are there any images?
+        if(record.images.length > 0) {
+            let numImgs = record.images.length;
+
+            //scan them for faces.
+            for(let i = 0; i < numImgs; i++)
+            {
+                record.images = detectFaces(record.images);
+            }
+
+            //What do we do now....
+            //what we are doing right now is just saving the image
+
+            saveImagesToDisc(record);
+
+            saveRecordToDisc(record);
+
+            resolve(record);
+        }
+        else {
+            reject("No images found.")
+        }
+    })
+}
+
 async function processData(record){}
 
 async function processText(record) {
@@ -63,33 +153,6 @@ async function processText(record) {
 
 async function processXls(record){
 
-}
-
-async function processPdf(record){
-    return new Promise((resolve,reject) =>{
-        record = convertPDF(record);
-        
-        //Are there any images?
-        if(record.images.length > 0) {
-            let numImgs = record.images.length;
-
-            //scan them for faces.
-            for(let i = 0; i < numImgs; i++)
-            {
-                record.images = detectFaces(record.images);
-            }
-
-            //What do we do now....
-            //what we are doing right now is just saving the image
-
-            saveImagesToDisc(record);
-
-            resolve(record);
-        }
-        else {
-            reject("No images found.")
-        }
-    })
 }
 
 /** Returns an array of info for positive facematches. */
@@ -168,6 +231,9 @@ function saveImagesToDisc(record) {
     }
 }
 
-function saveRecodToDisk (
+function saveRecordToDisc (record) {
+    let data = JSON.stringify(record)
 
-)
+    if(!FS.existsSync("./data")) FS.mkdirSync("./data");
+    FS.writeFileSync("./data/" + record.uuid + ".json", JSON.stringify(record));
+}

@@ -1,11 +1,9 @@
 
 process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
-const pdf = require('pdf-to-png-converter')
+const PDF = require('pdf-to-png-converter')
 const FS = require('fs');
-const PATH = require('path');
 const { v4: uuidv4 } = require('uuid');
-eval(FS.readFileSync('c:/users/michael/documents/sourcecode/utils/utils.js')+'');
 eval(FS.readFileSync('c:/users/michael/documents/sourcecode/utils/utils.js')+'');
 eval(FS.readFileSync('c:/users/michael/documents/sourcecode/data/DataTools.js')+'');
 eval(FS.readFileSync('sharedFunctions.js')+'');
@@ -103,7 +101,7 @@ function convertPDF(bufferOrFile,format = "png") {
 	console.log("\t- Converting to " + outputMask + ".png");
 	try{
      	let error = null;
-     	let images = pdf.pdfToPng(bufferOrFile, // The function accepts PDF file path or a Buffer
+     	let images = PDF.pdfToPng(bufferOrFile, // The function accepts PDF file path or a Buffer
      	{
           	disableFontFace: true, // When `false`, fonts will be rendered using a built-in font renderer that constructs the glyphs with primitive path commands. Default value is true.
           	useSystemFonts: false, // When `true`, fonts that aren't embedded in the PDF document will fallback to a system font. Default value is false.
@@ -133,70 +131,9 @@ function convertPDF(bufferOrFile,format = "png") {
 	}
 }
 
-async function download(record){
-    return new Promise((resolve,reject) => {
-        
-        record.data = null;
-        record.data = makeRequest(record.link)
-            .then(() => { 
-                resolve(record) })
-            .catch((reason) => {
-                let message = "\t Error - " + reason + ". Retrying...";
-                console.log(message);
-            })
-    })
-}
-
 const candidateExtentions = ["tiff","tif","jpg","jpeg","png","bmp","gif","pdf"];
 
-async function processRecord(record) {
-    return new Promise((resolve, reject) => {
-        
-        link = record.link;
-        
-        //decide what to do with the file here.
-        if(isTargetSize(record.size)){
-            FS.writeFileSync(taskfile,record)
-            
-            let ext = getFileExtention(filename)
-            
-            if(!candidateExtentions.includes(ext)) reject("\tRejected - " + record.file + " - wrong filetype.")
 
-            switch(ext) {
-                case "pdf":
-                    download(record)
-                        .then(() => { processPdf(record) } )
-                        .then(resolve(record));
-
-                    break;
-
-                case "sql":
-                case "csv":
-                case "txt":
-                    download(record)
-                        .then(processTxt(record))
-                        .then(resolve(record))
-
-                    break;
-
-                case "xls":
-                case "xlsx":
-                    download(record).then(processXls(record))
-                    .then(resolve(record))
-                    break;
-
-                default:
-            }
-
-        }
-        else
-        {
-            let reason = "\tRejecing " + record.file + " - wrong size."
-            reject(reason);
-        }
-
-    })
-}
 
 (async () => {
     
@@ -214,7 +151,7 @@ async function processRecord(record) {
     while (nextRecord != "EOF"){
     
         try {
-            await processRecord(nextRecord)
+            await processRecord(nextRecord) //      process Record is defined in fileProcessors.js
         }
         catch(reason) {
             console.log(reason);
