@@ -1,3 +1,4 @@
+const { assert } = require('console');
 
 const debugging = false;
 
@@ -51,16 +52,23 @@ async function getNextBrowserAgent() {
 }
 
 async function makeRequest(url,proxy,useTor) {
+    
     if (debugging) {
         console.warn(`makeRequest(${url},${proxy},${useTor})`);
     }
+
+    // console.log("makeRequest()");
+    // console.log(url);
+
 
     let urlIsOnion = useTor || (url.indexOf(".onion/") > -1) ? true : false
     let urlIsHttps = url.indexOf("https://") > -1 ? true : false
     let urlIsHttp = url.indexOf("http://") > -1 ? true : false
 
     let options = {
-        url : url
+        url : url,
+        ContentType: "text/html",
+        charset: 'utf-8'
     };
 
     if(urlIsOnion) {
@@ -90,9 +98,12 @@ async function makeRequest(url,proxy,useTor) {
 
         }else if(urlIsHttp) {
             return new Promise((resolve,reject)=> {
+                //console.log("making tor http request for " + getFileNameFromUrl(url) );
                 makeHttpTorRequest(options)
                 .then(
-                    (result) => {resolve(result)},
+                    (result) => {
+                        resolve(result)
+                    },
                     (reason) => {reject(reason)}
                 )}
             )
@@ -234,22 +245,23 @@ async function makeHttpRequest(options) {
     })
 }
 
-async function download(url){
-    return new Promise((resolve,reject) => {
-        
-        let data = null;
-        
-        while(data == null){
-        
-            data = makeRequest(url)
+// async function download(url){
+//     return new Promise((resolve,reject) => {
 
-            .then(() => { 
-                resolve(data) })
+//         console.log("downloading " + url.toString());
+//         let data = null;
+        
+//         while(data == null){
+        
+//             data = makeRequest(url)
 
-            .catch((reason) => {
-                let message = "\t Error - " + reason + ". Retrying...";
-                console.log(message);
-            })
-        }
-    })
-}
+//             .then(() => { 
+//                 resolve(data) })
+
+//             .catch((reason) => {
+//                 let message = "\t Error - " + reason + ". Retrying...";
+//                 console.log(message);
+//             })
+//         }
+//     })
+// }

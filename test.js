@@ -1,55 +1,37 @@
+const MYSQL = require('mysql2');
+let host = "localhost";
+let port = 9999;
+let database = "pp_search";
+let user = "Mike";
+let pass = "[Mysql521]";
+let db = MYSQL.createConnection({"host":host,"port":port,"database":database,"user":user,"password":pass});
 
-const debugging = true;
-makeRequest("http://google.com").then(
-    (result) => {console.log(result)},
-    (reason) => {console.log(reason)}
-)
 
-async function makeRequest(url) {
-    if (debugging) {
-        console.warn(`makeRequest(${url}`);
-    }
 
-    return new Promise((resolve,reject)=>{
-        makeHttpRequest(url)
-        .then(
-            (result) => {resolve(result)},
-            (reason) => {reject(reason)}
-        )}
-    )
-    .catch((error) => { console.log(error)});
+gnt();
+function gnt() {
+    //console.log('in gnt().')
+    db.execute("call pp_search.nextfile", (err,results,fields) => {
+        if(!err){
+            receivedResult(results);
+        }
+        else
+        {
+            receivedResult(err);
+            //process.exit();
+        }
+    })   
+    //return nextrecord
 }
 
-async function makeHttpRequest(options) {
-    let http = require('http');
-    if(debugging) {
-        console.log(`makeHttpRequest(${options})`);
-        console.log(options);
-    } 
+function receivedResult(result) {
     
-    return new Promise((resolve,reject) => {         
-        request = http.request(options, (response) => {
-            let data = '';
-            response.on('data', (chunk) => {
-                data = data + chunk.toString();
-            });
+    if(result instanceof Error){
+        console.log("db error.")
+        console.log(result);
+        process.exit();
+    }
 
-            response.on('end', () => {
-                resolve(data)
-            });
-
-            response.on('error', (error) => {
-                console.error('\t -- RESPONSE ERROR --');
-                //console.error('\t - RESPONSE ERROR:',error,options);
-                reject(error);
-            });
-        });
-
-        request.on('error', (error) => {
-            console.log("\t - HTTP Error: -- Connection Reset --");
-            reject(error)
-        });
-
-        request.end() 
-    })
+    console.log(result);
+    process.exit()
 }
