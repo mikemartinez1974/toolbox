@@ -106,8 +106,8 @@ function execute(query) {
         console.log('\n====================0======================')
         //console.log(getFileNameFromUrl(nextRecord.link));
         processRecord(nextRecord).then(
-            (result) => {
-                console.log("Success.")
+            (resolve) => {
+                console.log("Processing Complete.")
                 gnt();
 
             },
@@ -145,30 +145,6 @@ function execute(query) {
             }
         })
     }
-
-    // while (nextRecord != "EOF"){
-        
-    //     try {
-            
-    //         if(FS.existsSync(taskfile)) FS.unlinkSync(taskfile); 
-                
-    //         console.log("The next one.")  
-    //         let record = {}; 
-    //         try {
-    //             record = await getNextTask()
-    //         }
-    //         catch(reason){
-    //             reject(reason);
-    //         }
-
-    //         console.log(record);
-
-    //         await processRecord(nextRecord)
-    //         }catch(reason) {
-            
-    //     }
-        
-    // }
 
 })();
 

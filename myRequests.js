@@ -1,5 +1,3 @@
-const { assert } = require('console');
-
 const debugging = false;
 
 const availableTorPorts = [9050,9052,9054,9056,9058];
@@ -157,7 +155,13 @@ async function makeHttpsTorRequest(options) {
             if(error) {
                 reject(error);
             }
-            resolve(response.body);
+            if(!response.body) {
+                reject("no content in file");
+            }
+            else
+            {
+                resolve(response.body);
+            }
         });
     })
 };
@@ -167,10 +171,23 @@ async function makeHttpTorRequest(options) {
     //console.log(options);
     return new Promise((resolve,reject) => {
         request = tor.request(options,(error,response)  => {
-            if(error) {
-                reject(error);
+            try{
+                if(error) {
+                    reject(error);
+                }
+                if(!response.body) {
+                    console.log(response);
+                    reject("no content in file");
+                }
+                else
+                {
+                    resolve(response.body);
+                }
             }
-            resolve(response.body);
+            catch(e) {
+                console.log(e);
+                reject(e.message);
+            }
         });
     })
 }

@@ -4,11 +4,13 @@ const FS = require('fs');
 const LINEREADER = require('linereader');
 const DETECTOR = require('face-detector-self-contained');
 const IMGSYNC = require('image-sync');
+const READIMAGE = require('readimage')
 const pdf = require('pdf-to-png-converter')
 const _ = require('lodash');
 const URL = require('url');
 const { v4: uuidv4 } = require('uuid');
 const { assert } = require('console');
+const IMAGEINFO = require('imageinfo');
 eval(FS.readFileSync('sharedFunctions.js')+'');
 eval(FS.readFileSync('myRequests.js')+'');
 
@@ -33,7 +35,7 @@ const candidateExtentions = ["tiff","tif","jpg","jpeg","png","gif","pdf","txt","
 // }
 
 async function processRecord(record) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
 
         //debug?console.log("processRecord(" + record.name + ")"):false;
 
@@ -47,26 +49,28 @@ async function processRecord(record) {
             record.uuid = uuidv4().toString();
             FS.writeFileSync(taskfile,JSON.stringify(record))
             
-            debug?console.log("processRecord(" + record.name + ")"):false;
-
+            debug?console.log("Processing " + record.name + " (" + record.size + ")"):false;
             switch(ext) {
                 case "pdf":
-                        console.log(record.size);
-                        download(record)
-                        .then((record) => {
-                            //console.log(record);
-                            processPdf(record).then(
-                                (record)=>{
-                                    console.log("resolved");
-                                    resolve(record);
-                                },
-                                (reason)=>{
-                                    console.log(reason)
-                                    reject(reason);
-                                }).catch((reason)=>{
-                                    reject(reason);
-                                })
-                        })
+                        try {
+                            await download(record);
+                            await processPdf(record);
+                        }
+                        catch(e) {
+                            console.log(e);
+                            //process.exit();
+                        }
+                        //console.log(record);
+                        let totalFaces = 0;
+                        let imagecount = record.images.legth;
+                        for(let i = 0; i< imagecount ; i++) {
+                            totalFaces += image.faces.length;
+                        }
+                        if(totalFaces > 0){
+                            saveImagesToDisc(record);
+                            saveRecordToDisc(record);
+                        }
+                        resolve(record);
                     break;
                 case "sql":
                 case "csv":
@@ -88,7 +92,9 @@ async function processRecord(record) {
             }
 
         } else {
-            reject();
+            console.log(record.name);
+            console.log(record.size);
+            reject('Wrong size or type.');
         }
 
     })
@@ -103,58 +109,37 @@ async function download(record){
 
         await makeRequest(link,false,false)
         .then((data) => { 
-            //console.log("buffsize=" + data.length);
-            //mybuffer = new Buffer.alloc(data.length,data,"utf-8");
-            mybuffer = new Buffer(data,"utf-8");
-            //console.log(mybuffer);
-            //console.log(record);
+            let mybuffer = new Buffer(data,"utf-8");
             record.data = mybuffer;
             console.log("downloaded: " + record.data.length);
+            //console.log(record);
             resolve(record)
             }
         )
-        
-        
     })
 }
 
 async function processPdf(record){
     return new Promise(async (resolve,reject) =>{
         
-        console.log("processing pdf.");      
-        await convertPDF(record).then(
-            (data) => {
-                
-                let record = data;
-                
-                if(record.images.length > 0) {
-                    
-                    let numImgs = record.images.length;
-                    //console.log ("Images Found:" + numImgs);
-                    //console.log(record.data);
-                    //scan them for faces.
-                    for(let i = 0; i < numImgs; i++)
-                    {
-                        //console.log(record);
-                        record.images[i].faces =  detectFaces(record.images[i].content);
-                    }
+        console.log("processing pdf " + record.uuid);  
+        //console.log(record);    
+        await convertPDF(record)
+        // data is an array of pdf.pngpageoutput
+        let numImgs = record.images.length;
+        console.log("Images Found: " + numImgs);
+        
+        for(let i = 0; i < numImgs; i++)
+        {
+            let pdfpage = record.images[i];
+            let imginfo = IMAGEINFO(pdfpage.content);
+            pdfpage.width = imginfo.width;
+            pdfpage.height = imginfo.height;
+            pdfpage.faces = detectFaces(pdfpage);
+        }
 
-                    //What do we do now....
-                    //what we are doing right now is just saving the image
-
-                    saveImagesToDisc(record);
-
-                    saveRecordToDisc(record);
-
-                    resolve(record);
-                } else {
-                    //console.log("no images found");
-                    reject("No images found.")
-                }
-            },
-            (reason) => {
-                reject(reason);
-            });
+        console.log(record);
+        resolve(record);
     })
 }
 
@@ -186,31 +171,29 @@ async function processTxt(record) {
 
 /** Returns an array of info for positive facematches. */
 function detectFaces(imageInfo){
-    let results;
-    console.log(imageInfo);
-    for(let i = 0; i < imageInfo.length; i++) {
-
-        try{
-            let img = IMGSYNC.read(imageInfo[i].content);
-            let faceResults = DETECTOR.runFaceDetector(img.data,img.width,img.height);
-            for(let i = 0; i < faceResults.length; i++){
-                if(faceResults[i].length > 0 ){
-                    imageInfo.faces.push(faceResults[i])
-                } 
-            }
-        }   
-        catch(e)
-        {
-            imageInfo.faces = [];
+    let results = [];
+    READIMAGE(imageInfo.content,(err,myImage)=>{
+        if (err) {
+            console.log("failed to parse the image")
+            console.log(err)
+            return
         }
-    }
-    
-    return imageInfo
+        //imageInfo.content = myImage
+        let faceResults = DETECTOR.runFaceDetector(myImage.frames[0].data,imageInfo.width,imageInfo.height);
+        let numResults = faceResults.length;
+        console.log("Faces found: " + numResults);
+        for(let i = 0; i < numResults; i++){
+            if(faceResults[i].length > 0 ){
+                results.push(faceResults[i])
+            } 
+        }
+    })        
+    return results;
 }
 
 async function convertPDF(record) {
 	return new Promise(async (resolve,reject) => {
-        console.log("in convert pdf");
+        //console.log("converting...");
         let convertedImages;
         let outputMask = record.uuid;
         let images = [];
@@ -226,28 +209,18 @@ async function convertPDF(record) {
             verbosityLevel: 0 // Verbosity level. ERRORS: 0, WARNINGS: 1, INFOS: 5. Default value is 0.
         }
 
-        convertedImages = await pdf.pdfToPng(Buffer.from(record.data),options)
-        .then(
-            (data)=>{
-                //imagesRecevied(convertedImages,record);
-                if(_.isArray(data)) {
-                    record.images = data
-                    resolve(record);
-                }else{
-                    //images = [PngPageOutput] 
-                    //console.log("no images from converter"); 
-                    console.log(data); 
-                    reject("No images found") 
-                }
-            },
-            (reason)=>{
-                //console.log("rejected: " + reason);
-                reject(reason);
+        try {
+            data = record.data;
+            //data = FS.readFileSync("sample4.pdf");
+            record.images = await pdf.pdfToPng(data,options);
+        }
+        catch(e) {
+            record.images = [];
+            //reject("Invalid PDF Structure.")
+        }
 
-            })
-            .catch((e)=>{
-                reject(e);
-            });
+        if(record.images == []) reject("No images found/Invalid PDF");
+        resolve(record);
     })
 }
 
@@ -280,6 +253,7 @@ function saveImagesToDisc(record) {
 
 function saveRecordToDisc (record) {
     console.log("Saving Record");
+    //console.log(record);
     let data = JSON.stringify(record)
 
     if(!FS.existsSync("./data")) FS.mkdirSync("./data");
