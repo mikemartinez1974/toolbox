@@ -15,3 +15,8 @@ function getFileNameFromUrl(url){
 	let filename = url.substr(start,end)
 	return filename.toLowerCase();
 }
+
+module.exports = {
+	getFileExtention: getFileExtention,
+	getFileNameFromUrl: getFileNameFromUrl
+}

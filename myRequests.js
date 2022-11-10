@@ -49,7 +49,241 @@ async function getNextBrowserAgent() {
     })
 }
 
-async function makeRequest(url,proxy,useTor) {
+// async function makeRequest(url,proxy,useTor) {
+    
+//     if (debugging) {
+//         console.warn(`makeRequest(${url},${proxy},${useTor})`);
+//     }
+
+//     // console.log("makeRequest()");
+//     // console.log(url);
+
+
+//     let urlIsOnion = useTor || (url.indexOf(".onion/") > -1) ? true : false
+//     let urlIsHttps = url.indexOf("https://") > -1 ? true : false
+//     let urlIsHttp = url.indexOf("http://") > -1 ? true : false
+
+//     let options = {
+//         url : url,
+//         ContentType: "text/html",
+//         charset: 'utf-8'
+//     };
+
+//     if(urlIsOnion) {
+
+//         options = {
+//             url: url,
+//             strictSSL: true,
+//             agentClass: require('socks5-https-client/lib/Agent'),
+//             agentOptions: {
+//               socksHost: 'localhost', // Defaults to 'localhost'.
+//               socksPort: getNextTorPort(), // Defaults to 1080.
+//               // Optional credentials
+//               //socksUsername: 'proxyuser',
+//               //socksPassword: 'p@ssw0rd',
+//             }
+//         }
+
+//         if(urlIsHttps) {
+//             options.agentClass = require('socks5-https-client/lib/Agent');
+//             return new Promise((resolve,reject)=> {
+//                 makeHttpsTorRequest(options)
+//                 .then(
+//                     (result) => {resolve(result)},
+//                     (reason) => {reject(reason)}
+//                 )}
+//             )
+
+//         }else if(urlIsHttp) {
+//             return new Promise((resolve,reject)=> {
+//                 //console.log("making tor http request for " + getFileNameFromUrl(url) );
+//                 makeHttpTorRequest(options)
+//                 .then(
+//                     (result) => {
+//                         resolve(result)
+//                     },
+//                     (reason) => {reject(reason)}
+//                 )}
+//             )
+//         }
+
+//     } else { 
+
+//         if(proxy) {
+//             let p = proxy.split(":");
+//             //let agent = await getNextBrowserAgent();
+    
+//             if(p.length > 2)
+//             {
+//                 options.headers = {
+//                     host : url.split("/")[2]
+//                 };
+//                 options.host = p[0];
+//                 options.port = parseInt(p[1]);
+//                 options.username = p[2];
+//                 options.password = p[3]; 
+//             }
+//             else {
+//                 options.host = p[0];
+//                 options.port = parseInt(p[1]);
+//             }
+//         }
+
+//         if(urlIsHttps) {
+//             return new Promise((resolve,reject)=> {
+//                 makeHttpsRequest(options)
+//                 .then(
+//                     (result) => {resolve(result)},
+//                     (reason) => {reject(reason)}
+//             )})
+//         } else if (urlIsHttp) {
+//             return new Promise((resolve,reject) => {
+//                 makeHttpRequest(options)
+//                 .then(
+//                     (result) => {resolve(result)},
+//                     (reason) => {reject(reason)}
+//             )})
+//         }
+//     }
+// }
+
+async function makeHttpsTorRequest(options) {
+    let tor = require('tor-request');
+    //console.log(options);
+    return new Promise((resolve,reject) => {
+        request = tor.request(options,(error,response)  => {
+            if(error) {
+                makeHttpsTorRequest(options);
+            }
+            if(!response.body) {
+                reject("no content in file");
+            }
+            else
+            {
+                resolve(response.body);
+            }
+        });
+    })
+};
+
+async function makeHttpTorRequest(options) {
+    let tor = require('tor-request');
+    //console.log(options);
+    return new Promise((resolve,reject) => {
+        request = tor.request(options,(error,response)  => {
+            try{
+                if(error) {
+                    reject(error);
+                }
+                if(response.body == undefined) {
+                    console.log(response);
+                    reject("no content in file");
+                }
+                else
+                {
+                    resolve(response.body);
+                }
+            }
+            catch(e) {
+                console.log(e);
+                reject(e.message)
+            }
+        });
+    })
+}
+
+async function makeHttpsRequest(options) {
+    if(debugging) {
+        console.log(`makeHttpRequest(${options})`);
+        console.log(options);
+    }
+
+    return new Promise((resolve,reject) => {
+        if(options.length == 1) options = options.url;
+        request = require('https').request(options, (response) => {
+            let data = '';
+            response.on('data', (chunk) => {
+                data = data + chunk.toString();
+            });
+
+            response.on('end', () => {
+                resolve(data)
+            });
+
+            response.on('error', (error) => {
+                console.error('\t -- RESPONSE ERROR --');
+                //console.error('\t - RESPONSE ERROR:',error,options);
+                reject(error);
+            });
+        });
+
+        request.on('error', (error) => {
+
+            console.log("\t - HTTP Error: -- Connection Reset --");
+            reject(error)
+        });
+
+        request.end() 
+    })
+}
+
+async function makeHttpRequest(options) {
+    let http = require('http');
+    if(debugging) {
+        console.log(`makeHttpRequest(${options})`);
+        console.log(options);
+    } 
+    
+    return new Promise((resolve,reject) => {   
+        if(options.length == 1) options = options.url;      
+        request = http.request(options, (response) => {
+            let data = '';
+            response.on('data', (chunk) => {
+                data = data + chunk.toString();
+            });
+
+            response.on('end', () => {
+                resolve(data)
+            });
+
+            response.on('error', (error) => {
+                console.error('\t -- RESPONSE ERROR --');
+                //console.error('\t - RESPONSE ERROR:',error,options);
+                reject(error);
+            });
+        });
+
+        request.on('error', (error) => {
+            console.log("\t - HTTP Error: -- Connection Reset --");
+            reject(error)
+        });
+
+        request.end() 
+    })
+}
+
+// async function download(url){
+//     return new Promise((resolve,reject) => {
+
+//         console.log("downloading " + url.toString());
+//         let data = null;
+        
+//         while(data == null){
+        
+//             data = makeRequest(url)
+
+//             .then(() => { 
+//                 resolve(data) })
+
+//             .catch((reason) => {
+//                 let message = "\t Error - " + reason + ". Retrying...";
+//                 console.log(message);
+//             })
+//         }
+//     })
+// }
+
+const makeRequest = async function(url,proxy,useTor) {
     
     if (debugging) {
         console.warn(`makeRequest(${url},${proxy},${useTor})`);
@@ -147,138 +381,6 @@ async function makeRequest(url,proxy,useTor) {
     }
 }
 
-async function makeHttpsTorRequest(options) {
-    let tor = require('tor-request');
-    //console.log(options);
-    return new Promise((resolve,reject) => {
-        request = tor.request(options,(error,response)  => {
-            if(error) {
-                reject(error);
-            }
-            if(!response.body) {
-                reject("no content in file");
-            }
-            else
-            {
-                resolve(response.body);
-            }
-        });
-    })
-};
-
-async function makeHttpTorRequest(options) {
-    let tor = require('tor-request');
-    //console.log(options);
-    return new Promise((resolve,reject) => {
-        request = tor.request(options,(error,response)  => {
-            try{
-                if(error) {
-                    reject(error);
-                }
-                if(!response.body) {
-                    console.log(response);
-                    reject("no content in file");
-                }
-                else
-                {
-                    resolve(response.body);
-                }
-            }
-            catch(e) {
-                console.log(e);
-                reject(e.message);
-            }
-        });
-    })
+module.exports = {
+    makeRequest: makeRequest
 }
-
-async function makeHttpsRequest(options) {
-    if(debugging) {
-        console.log(`makeHttpRequest(${options})`);
-        console.log(options);
-    }
-
-    return new Promise((resolve,reject) => {
-        if(options.length == 1) options = options.url;
-        request = require('https').request(options, (response) => {
-            let data = '';
-            response.on('data', (chunk) => {
-                data = data + chunk.toString();
-            });
-
-            response.on('end', () => {
-                resolve(data)
-            });
-
-            response.on('error', (error) => {
-                console.error('\t -- RESPONSE ERROR --');
-                //console.error('\t - RESPONSE ERROR:',error,options);
-                reject(error);
-            });
-        });
-
-        request.on('error', (error) => {
-
-            console.log("\t - HTTP Error: -- Connection Reset --");
-            reject(error)
-        });
-
-        request.end() 
-    })
-}
-
-async function makeHttpRequest(options) {
-    let http = require('http');
-    if(debugging) {
-        console.log(`makeHttpRequest(${options})`);
-        console.log(options);
-    } 
-    
-    return new Promise((resolve,reject) => {   
-        if(options.length == 1) options = options.url;      
-        request = http.request(options, (response) => {
-            let data = '';
-            response.on('data', (chunk) => {
-                data = data + chunk.toString();
-            });
-
-            response.on('end', () => {
-                resolve(data)
-            });
-
-            response.on('error', (error) => {
-                console.error('\t -- RESPONSE ERROR --');
-                //console.error('\t - RESPONSE ERROR:',error,options);
-                reject(error);
-            });
-        });
-
-        request.on('error', (error) => {
-            console.log("\t - HTTP Error: -- Connection Reset --");
-            reject(error)
-        });
-
-        request.end() 
-    })
-}
-
-// async function download(url){
-//     return new Promise((resolve,reject) => {
-
-//         console.log("downloading " + url.toString());
-//         let data = null;
-        
-//         while(data == null){
-        
-//             data = makeRequest(url)
-
-//             .then(() => { 
-//                 resolve(data) })
-
-//             .catch((reason) => {
-//                 let message = "\t Error - " + reason + ". Retrying...";
-//                 console.log(message);
-//             })
-//         }
-//     })
-// }
