@@ -1,9 +1,11 @@
 
+let debug = false;
+
 const _ = require('lodash');
-const { program } = require('commander');
+
 const fs = require('fs');
 const cheerio = require('cheerio');
-
+const MYREQUESTS = require('./myRequests')
 //import my util code.
 eval(fs.readFileSync('myRequests.js') + '');
 eval(fs.readFileSync('c:/users/michael/documents/sourcecode/utils/utils.js')+'');
@@ -22,10 +24,10 @@ tor.TorControlPort.password = '[Tor521]';
 //     link: link.trim()
 // }
 
+const { program } = require('commander');
 if (process.argv.length == 2) {
     process.argv.push("-h")
 };
-
 program
     .option('-p, --path <uri>', '(required for first instance) The URI of the site to index.  (It must display a directory.)')
     .option('-d, --debug', 'Extra debug info')
@@ -42,7 +44,10 @@ if(_.isEqual(options,{})) {
     console.log(options);
 }
 
-if (options.debug) console.log(options);
+if (options.debug) {
+    debug = true;
+    //console.log(options);
+}
 if (!options.task) options.task = "indexer"; 
 if (!options.name) optionsname = "lastIndexRan";
 if (options.reset) {
@@ -67,7 +72,12 @@ let taskfile = task + ".TASK";
     
         let url = nextSite;
         try{
-            let page = await download(url);
+            let page = await MYREQUESTS.download(url);
+            if(debug) {
+                console.log("[page]")
+                console.log(page)
+                console.log("[/page]");
+            }
             let results = parseDirectory(page,url);
             let files = results.files;
             let directories = results.directories;
@@ -119,6 +129,10 @@ let taskfile = task + ".TASK";
     function parseDirectory(htmltext,path) {
         let directories = [];
         let filelist = [];
+        if(debug){
+            console.log(htmltext);
+            console.log(path)
+        }
         const $ = cheerio.load(htmltext);
     
         listing = $("tbody tr");

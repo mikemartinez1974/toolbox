@@ -72,7 +72,7 @@ async function download(record){
 //     })
 // }
 
-const processPdf = async function(record){
+async function processPdf (record){
     return new Promise(async (resolve,reject) =>{
         
         console.log("processing pdf " + record.uuid);     
@@ -232,5 +232,5 @@ function saveRecordToDisc (record) {
 
 
 module.exports = {
-    processPdf: 
+    processPdf: processPdf
 }

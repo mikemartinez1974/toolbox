@@ -12,7 +12,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}\\miner.js",
-            "args": ["gmi3"]
+            "args": ["-t test"]
         }
     ]
 }

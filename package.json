@@ -20,6 +20,8 @@
   },
   "homepage": "https://github.com/mikemartinez1974/toolbox#readme",
   "dependencies": {
+    "@mich4l/tor-client": "^1.0.4",
+    "bl": "^6.0.0",
     "buffer-image-size": "^0.6.4",
     "cheerio": "^1.0.0-rc.12",
     "commander": "^9.4.1",

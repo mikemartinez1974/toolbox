@@ -16,7 +16,20 @@ function getFileNameFromUrl(url){
 	return filename.toLowerCase();
 }
 
+/** returns 'targetString' with all instances of 'symbol' replaced with 'newsymbol'. */
+function replaceAll(targetString,symbol,newsymbol)
+{
+    targetString = String(targetString).trim();
+    while(targetString.indexOf(symbol) > -1)
+    {
+        targetString = targetString.replace(symbol,newsymbol);
+    }
+
+    return targetString;
+}
+
 module.exports = {
 	getFileExtention: getFileExtention,
-	getFileNameFromUrl: getFileNameFromUrl
+	getFileNameFromUrl: getFileNameFromUrl,
+	replaceAll: replaceAll
 }

@@ -1,4 +1,14 @@
-const debugging = false;
+let debugging = true;
+
+const HTTP = require('http');
+const HTTPS = require('https');
+
+//const TOR = require('@mich4l/tor-client');
+const TOR = require('tor-request');
+// const tor = new TOR.TorClient({socksHost:'127.0.0.1', socksPort:9050});
+
+const _ = require('lodash');
+const SHARED = require("./sharedFunctions")
 
 const availableTorPorts = [9050,9052,9054,9056,9058];
 let portIndex = 0;
@@ -7,34 +17,35 @@ function getNextTorPort() {
     return availableTorPorts[portIndex++];
 }
 
-//test();
+const { program } = require('commander');
+if (process.argv.length == 2) {
+    process.argv.push("-h")
+};
 
-// these are the tests.
-async function test() {
-    try{
+let programIsSelf = false;
+if(process.argv[1].toLowerCase().endsWith("myrequests.js")) programIsSelf = true;
+if(process.argv[1].toLowerCase().endsWith("myrequests")) programIsSelf = true;
 
-        makeRequest("http://yahoo.com",false,false).then(
-            (result) => {console.log('HTTP Passed.')},
-            (reason) => {console.log('HTTP Failed - ' + reason)}
-        )
-    
-        makeRequest("https://google.com").then(
-            (result) => {console.log('HTTPS Passed.')},
-            (reason) => {console.log('HTTPS Failed - ' + reason)}
-        )
-    
-        makeRequest("http://rgleaktxuey67yrgspmhvtnrqtgogur35lwdrup4d3igtbm3pupc4lyd.onion/",false,false).then(
-            (result) => {console.log('Tor HTTP Passed.')},
-            (reason) => {console.log('Tor HTTP Failed - ' + reason)}
-        )
-    
-        makeRequest("https://check.torproject.org/",false,true).then(
-            (result) => {console.log('Tor HTTPS Passed.')},
-            (reason) => {console.log('Tor HTTPS Failed - ' + reason)}
-        )
-    } catch(e) {
-        console.log(e);
+if(programIsSelf) {
+
+    program
+        //.option('-p, --path <uri>', '(required for first instance) The URI of the site to index.  (It must display a directory.)')
+        .option('-d, --debug', 'Extra debug info')
+        .option('-?, --test true', 'Runs a test to make sure the various requests are functioning.')
+        //.option('-r, --reset', 'Throw away existing data and start over.')
+    program.parse(process.argv);
+
+    const options = program.opts();
+
+    if(_.isEqual(options,{})) {
+        process.exit();
+    } else {
+        console.log(options);
     }
+
+    if (options.debug) {debugging = true} else {debugging = false;}
+    if (options.test) {test()}
+
 }
 
 async function getNextProxy(){
@@ -148,10 +159,9 @@ async function getNextBrowserAgent() {
 // }
 
 async function makeHttpsTorRequest(options) {
-    let tor = require('tor-request');
     //console.log(options);
     return new Promise((resolve,reject) => {
-        request = tor.request(options,(error,response)  => {
+        request = TOR.request(options,(error,response)  => {
             if(error) {
                 makeHttpsTorRequest(options);
             }
@@ -167,21 +177,20 @@ async function makeHttpsTorRequest(options) {
 };
 
 async function makeHttpTorRequest(options) {
-    let tor = require('tor-request');
     //console.log(options);
     return new Promise((resolve,reject) => {
-        request = tor.request(options,(error,response)  => {
+        console.log("Downloading...")
+        request = TOR.request(options,(error,response)  => {
             try{
                 if(error) {
                     reject(error);
                 }
-                if(response.body == undefined) {
-                    console.log(response);
-                    reject("no content in file");
-                }
-                else
-                {
+
+                if(Object(response).hasOwnProperty('body')) {
                     resolve(response.body);
+                }
+                else {
+                    console.log(response)
                 }
             }
             catch(e) {
@@ -190,17 +199,20 @@ async function makeHttpTorRequest(options) {
             }
         });
     })
-}
+};
 
 async function makeHttpsRequest(options) {
     if(debugging) {
-        console.log(`makeHttpRequest(${options})`);
+        console.log(`makeHttpsRequest(${options})`);
         console.log(options);
     }
+
+    let keycount = Object.keys(options).length;
+    if(keycount == 1) options = options.url;
 
     return new Promise((resolve,reject) => {
-        if(options.length == 1) options = options.url;
-        request = require('https').request(options, (response) => {
+        
+        request = HTTPS.request(options, (response) => {
             let data = '';
             response.on('data', (chunk) => {
                 data = data + chunk.toString();
@@ -211,7 +223,7 @@ async function makeHttpsRequest(options) {
             });
 
             response.on('error', (error) => {
-                console.error('\t -- RESPONSE ERROR --');
+                console.error('\t -- HTTPS RESPONSE ERROR --');
                 //console.error('\t - RESPONSE ERROR:',error,options);
                 reject(error);
             });
@@ -219,24 +231,31 @@ async function makeHttpsRequest(options) {
 
         request.on('error', (error) => {
 
-            console.log("\t - HTTP Error: -- Connection Reset --");
+            console.log("\t - HTTPS REQUEST Error: -- Connection Reset --");
             reject(error)
         });
 
         request.end() 
     })
-}
+};
 
 async function makeHttpRequest(options) {
-    let http = require('http');
+    
+    // console.log(options.length)
+    // console.log(options)
+    // if(options.length == 1) options = options.url;
+
     if(debugging) {
-        console.log(`makeHttpRequest(${options})`);
+        console.log(`makeHttpRequest()`);
         console.log(options);
     } 
-    
+
+    let keycount = Object.keys(options).length;
+    if(keycount == 1) options = options.url;
+        
     return new Promise((resolve,reject) => {   
-        if(options.length == 1) options = options.url;      
-        request = http.request(options, (response) => {
+              
+        request = HTTP.request(options, (response) => {
             let data = '';
             response.on('data', (chunk) => {
                 data = data + chunk.toString();
@@ -260,47 +279,54 @@ async function makeHttpRequest(options) {
 
         request.end() 
     })
+};
+
+async function download(url){
+    return new Promise((resolve,reject) => {
+
+        console.log("downloading " + url.toString());
+        let data = null;
+        
+        while(data == null){
+        
+            data = makeRequest(url)
+            .then((data) => {
+                if(debugging){
+                    console.log("[data]");
+                    console.log(data);
+                    console.log("[/data]")
+                } 
+                resolve(data) 
+            })
+
+            .catch((reason) => {
+                let message = "\t Error - " + reason + ". Retrying...";
+                console.log(message);
+            })
+        }
+    })
 }
 
-// async function download(url){
-//     return new Promise((resolve,reject) => {
-
-//         console.log("downloading " + url.toString());
-//         let data = null;
-        
-//         while(data == null){
-        
-//             data = makeRequest(url)
-
-//             .then(() => { 
-//                 resolve(data) })
-
-//             .catch((reason) => {
-//                 let message = "\t Error - " + reason + ". Retrying...";
-//                 console.log(message);
-//             })
-//         }
-//     })
-// }
-
-const makeRequest = async function(url,proxy,useTor) {
+async function makeRequest (url,proxy,useTor) {
     
-    if (debugging) {
-        console.warn(`makeRequest(${url},${proxy},${useTor})`);
-    }
+    console.log("Downloading ", url)
 
-    // console.log("makeRequest()");
-    // console.log(url);
-
-
+    url = String(url);
     let urlIsOnion = useTor || (url.indexOf(".onion/") > -1) ? true : false
     let urlIsHttps = url.indexOf("https://") > -1 ? true : false
     let urlIsHttp = url.indexOf("http://") > -1 ? true : false
 
+    if (debugging) {
+        //console.warn(`makeRequest(${url},${proxy},${useTor})`);
+        console.log("Onion: ", urlIsOnion)
+        console.log("Https: ", urlIsHttps)
+        console.log("Http:  ", urlIsHttp)
+    }
+    
     let options = {
-        url : url,
-        ContentType: "text/html",
-        charset: 'utf-8'
+        url : url //,
+        //ContentType: "text/html",
+        //charset: 'utf-8'
     };
 
     if(urlIsOnion) {
@@ -323,7 +349,7 @@ const makeRequest = async function(url,proxy,useTor) {
             return new Promise((resolve,reject)=> {
                 makeHttpsTorRequest(options)
                 .then(
-                    (result) => {resolve(result)},
+                    (result) => { console.log("Download complete."); resolve(result)},
                     (reason) => {reject(reason)}
                 )}
             )
@@ -333,9 +359,7 @@ const makeRequest = async function(url,proxy,useTor) {
                 //console.log("making tor http request for " + getFileNameFromUrl(url) );
                 makeHttpTorRequest(options)
                 .then(
-                    (result) => {
-                        resolve(result)
-                    },
+                    (result) => { console.log("Download complete."); resolve(result)},
                     (reason) => {reject(reason)}
                 )}
             )
@@ -367,20 +391,52 @@ const makeRequest = async function(url,proxy,useTor) {
             return new Promise((resolve,reject)=> {
                 makeHttpsRequest(options)
                 .then(
-                    (result) => {resolve(result)},
+                    (result) => { console.log("Download complete."); resolve(result)},
                     (reason) => {reject(reason)}
             )})
         } else if (urlIsHttp) {
             return new Promise((resolve,reject) => {
                 makeHttpRequest(options)
                 .then(
-                    (result) => {resolve(result)},
+                    (result) => { console.log("Download complete."); resolve(result)},
                     (reason) => {reject(reason)}
             )})
         }
     }
 }
 
+
+
 module.exports = {
-    makeRequest: makeRequest
+    makeRequest: makeRequest,
+    download: download
+}
+
+
+// these are the tests.
+async function test() {
+    try{
+
+        makeRequest("http://yahoo.com",false,false).then(
+            (result) => {console.log('HTTP Passed.')},
+            (reason) => {console.log('HTTP Failed - ' + reason)}
+        )
+    
+        makeRequest("https://google.com").then(
+            (result) => {console.log('HTTPS Passed.')},
+            (reason) => {console.log('HTTPS Failed - ' + reason)}
+        )
+    
+        makeRequest("http://rgleaktxuey67yrgspmhvtnrqtgogur35lwdrup4d3igtbm3pupc4lyd.onion/",false,false).then(
+            (result) => {console.log('Tor HTTP Passed.')},
+            (reason) => {console.log('Tor HTTP Failed - ' + reason)}
+        )
+    
+        makeRequest("https://check.torproject.org/",false,true).then(
+            (result) => {console.log('Tor HTTPS Passed.')},
+            (reason) => {console.log('Tor HTTPS Failed - ' + reason)}
+        )
+    } catch(e) {
+        console.log(e);
+    }
 }
